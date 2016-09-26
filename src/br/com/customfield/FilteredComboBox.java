@@ -8,19 +8,32 @@ import javafx.collections.ListChangeListener.Change;
 import javafx.collections.ObservableList;
 import javafx.scene.control.ComboBox;
 import javafx.scene.input.KeyCode;
+import javafx.util.StringConverter;
 
 public class FilteredComboBox<T> extends ComboBox<T>{
 	public static interface FilterCallback<T>{
 		public boolean isInFilter(T item, String filter);
 	}
-	
+
 	ObservableList<T> itens = FXCollections.observableArrayList();
 	private String promptText;
 	boolean filtering = false;
 	boolean reseting = false;
 	private ObjectProperty<FilterCallback<T>> filterCallback = new SimpleObjectProperty<>();
-	
+
 	{
+
+		setConverter(new StringConverter<T>() {
+			@Override
+			public T fromString(String arg0) {
+				return getValue();
+			}
+
+			@Override
+			public String toString(T arg0) {
+				return arg0 == null ? "" : arg0.toString();
+			}
+		});
 
 		setFilterCallback(new FilterCallback<T>() {
 			@Override
@@ -28,7 +41,7 @@ public class FilteredComboBox<T> extends ComboBox<T>{
 				return item.toString().startsWith(text);
 			}
 		});
-		
+
 		getEditor().textProperty().addListener((obs, old, newv)->filter(newv));
 
 		promptTextProperty().addListener((obs, old, newv)->{
@@ -93,7 +106,7 @@ public class FilteredComboBox<T> extends ComboBox<T>{
 	public void filter(String filter){
 		if(reseting)return;
 		filtering = true;
-		
+
 		show();
 		if(!isEditable())
 			setPromptText(filter);
@@ -112,20 +125,20 @@ public class FilteredComboBox<T> extends ComboBox<T>{
 			filtering = false;
 		}
 	}
-	
+
 	public ObjectProperty<FilterCallback<T>> filterCallbackProperty() {
 		return this.filterCallback;
 	}
-	
+
 
 	public FilterCallback<T> getFilterCallback() {
 		return this.filterCallbackProperty().get();
 	}
-	
+
 
 	public void setFilterCallback(FilterCallback<T> filterCallback) {
 		this.filterCallbackProperty().set(filterCallback);
 	}
-	
+
 
 }

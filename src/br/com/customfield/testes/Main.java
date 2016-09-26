@@ -5,20 +5,16 @@ import br.com.customfield.FormatBuilder;
 import br.com.customfield.FormattedField;
 import br.com.customfield.FormattedFieldTableCell;
 import br.com.customfield.MaskedField;
-import br.com.customfield.FilteredComboBox.FilterCallback;
 import javafx.application.Application;
 import javafx.beans.property.DoubleProperty;
-import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.event.EventHandler;
 import javafx.stage.Stage;
 import javafx.util.StringConverter;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TablePosition;
 import javafx.scene.control.TableView;
-import javafx.scene.control.Alert.AlertType;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.control.Button;
@@ -46,23 +42,12 @@ public class Main extends Application {
 			
 			FilteredComboBox<CFOP> cb = new FilteredComboBox<>();
 			cb.setEditable(true);
-			cb.setFilterCallback(new FilterCallback<CFOP>() {
-				@Override
-				public boolean isInFilter(CFOP item, String filter) {
-					return item.getCodigo().startsWith(filter) 
-							|| item.getNome().toLowerCase().contains(filter.toLowerCase());
-				}
-			});
+			cb.setFilterCallback((item, filter)-> item.getCodigo().startsWith(filter) || item.getNome().toLowerCase().contains(filter.toLowerCase()));
 			cb.getItems().addAll(CFOP.getEntrada());
-			
 			root.getChildren().add(cb);
 			
 			FormattedField f = new FormattedField();
-			f.getFormat().setCase(FormattedField.UPPER_CASE);
-			f.getFormat().setLimit(10);
-			f.getFormat().setAllowNumbers(false);
-//			f.setPrefix("R$");
-			f.getFormat().setSufix("%");
+			f.getFormat().setLimit(6);
 			
 			MaskedField f2 = new MaskedField();
 			f2.setPromptText("DATA");
@@ -145,7 +130,7 @@ public class Main extends Application {
 
 			
 			Button test = new Button("ok");
-			test.setOnAction(e->cb.filter("mercadoria"));
+			test.setOnAction(e->f.setValue("12345"));
 			
 			root.getChildren().addAll(f,f2);
 			root.getChildren().add(test);

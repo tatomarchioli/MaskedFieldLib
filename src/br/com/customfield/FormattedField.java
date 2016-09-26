@@ -37,7 +37,7 @@ public class FormattedField extends TextField {
 	}
 
 	public void setValue(String text){
-		replaceText(0,getText().length(),text);
+		replaceText(0,getText().length(),text == null ? "" : text);
 	}
 
 	@Override
@@ -58,15 +58,14 @@ public class FormattedField extends TextField {
 
 
 		//calculate ofsset
-		int of = getLength() == 0 ? start : start- getPrefix().length();
+		int of = getLength() == 0 ? start : start - getPrefix().length();
 		if(of < 0){
 			of = 0;
 		}else if(of > unformattedText.get().length()){
 			of = unformattedText.get().length();
 		}
 		//calculate end
-		int	en = end;
-		en = en - getPrefix().length();
+		int	en = end - getSufix().length();
 		if(en < 0){
 			en = 0;
 		}else if(en > unformattedText.get().length()){
@@ -143,8 +142,7 @@ public class FormattedField extends TextField {
 
 			int length = getText().length();
 
-			if((getLimit() == NO_LIMIT || length+validated.length()+1<= getLimit())&& 
-					matcher2.find()){
+			if((getLimit() == NO_LIMIT || length + validated.length() + 2 <= getLimit() + getSelection().getLength()) && matcher2.find()){
 				validated = validated+text.charAt(i);
 			}
 		}
@@ -206,9 +204,9 @@ public class FormattedField extends TextField {
 	//Validate the input
 	private String validate(String text){
 		String validated = "";
-		Pattern pattern1 = Pattern.compile("[A-Z a-z À-ú &&[^\\s]]");
+		Pattern pattern1 = Pattern.compile("[A-Z a-z Ã -Ãº &&[^\\s]]");
 		Pattern pattern2 = Pattern.compile("[0-9]");
-		Pattern pattern3 = Pattern.compile("[\\W|_&&[^\\s À-ú]]");
+		Pattern pattern3 = Pattern.compile("[\\W|_&&[^\\sÃ -Ãº]]");
 		Pattern pattern4 = Pattern.compile("\\s");
 
 		int n = text.length();
@@ -223,7 +221,7 @@ public class FormattedField extends TextField {
 
 			int length = getText().length();
 
-			if((getLimit() == NO_LIMIT || length+validated.length()+1<= getLimit() )&&
+			if((getLimit() == NO_LIMIT || length+validated.length()+1 <= getLimit()+getSelection().getLength() )&&
 					!(!isAllowLetters() && matcher1.find())&&
 					!(!isAllowNumbers() && matcher2.find())&&
 					!(!isAllowSpecialChars() && matcher3.find())&&

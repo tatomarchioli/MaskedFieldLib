@@ -1,6 +1,5 @@
 package br.com.customfield;
 
-import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -18,241 +17,261 @@ import javafx.scene.control.IndexRange;
 import javafx.scene.control.TextField;
 
 public class FormattedField extends TextField {
-	private DoubleProperty doubleProperty = new SimpleDoubleProperty();
-	private StringProperty unformattedText = new SimpleStringProperty();
-	private ObjectProperty<FormatBuilder> formatProperty = new SimpleObjectProperty<>();
+	private DoubleProperty doubleValue = new SimpleDoubleProperty();
+	private StringProperty value = new SimpleStringProperty("");
+	private NumberFormat numberFormat = NumberFormat.getNumberInstance();
+	private ObjectProperty<FormatBuilder> format = new SimpleObjectProperty<>(new FormatBuilder());
 
-	public FormattedField(){
+	public FormattedField() {
 		this(null);
 	}
 
-	public FormattedField(FormatBuilder formatter){
-		formatProperty.set(formatter == null ? new FormatBuilder() : formatter);
-		unformattedText.set("");	
-	}
+	public FormattedField(FormatBuilder formatter) {
+		format.set(formatter == null ? new FormatBuilder() : formatter);
+		decimalCasesProperty().addListener((obs, oldv, newv) -> {
+			numberFormat.setMinimumFractionDigits(getDecimalCases());
+			numberFormat.setMaximumFractionDigits(getDecimalCases());
+		});
 
-	public void setValue(String text){
-		replaceText(0,getText().length(),text == null ? "" : text);
+		value.addListener((obs, oldv, newv) -> {
+			if (isDecimalMode() && !isFocused()) {
+				setText(numberFormat.format(getDoubleValue()));
+				return;
+			}
+			setText(newv);
+		});
+
+		focusedProperty().addListener((obs, oldv, newv) -> {
+			if (isDecimalMode()) {
+				if (!newv) {
+					setText(numberFormat.format(getDoubleValue()));
+				} else {
+					setText(value.get());
+				}
+			}
+		});
 	}
 
 	@Override
-	public void replaceText(int start, int end, String text){
-		if(!formatProperty.get().decimalModeProperty().get()){
-			replace(start,end,text);
-		}else{
-			replaceDouble(start,end,text);
+	public void replaceText(int start, int end, String text) {
+		if (!format.get().decimalModeProperty().get()) {
+			replace(start, end, text);
+		} else {
+			replaceDouble(start, end, text);
 		}
 	}
 
-	private void replaceDouble(int start, int end, String text){
-		String old = unformattedText.get();
-		int caretPos = getCaretPosition();		
+	private void replace(int start, int end, String text) {
+		int caretPos = getCaretPosition();
+		String valid = getRegex() != null ? validateRegex(text) : validate(text);
+		IndexRange selection = getSelection();
 
-		IndexRange selection = getSelection();//If there's a selecion, the caret calc is different.
-
-		//calculate ofsset
+		// calculate ofsset
 		int of = getLength() == 0 ? start : start - getPrefix().length();
-		if(of < 0){
+		if (of < 0) {
 			of = 0;
-		}else if(of > unformattedText.get().length()){
-			of = unformattedText.get().length();
+		} else if (of > value.get().length()) {
+			of = value.get().length();
 		}
-		//calculate end
-		int	en = end - getSufix().length();
-		if(en < 0){
+
+		// calculate end
+		int en = end;
+		en = en - getPrefix().length();
+		if (en < 0) {
 			en = 0;
-		}else if(en > unformattedText.get().length()){
-			en = unformattedText.get().length();
+		} else if (en > value.get().length()) {
+			en = value.get().length();
+		}
+
+		//Replace on the value property
+		StringBuilder sb = new StringBuilder(value.get());
+		if (start == end) {
+			sb.insert(of, valid);
+		} else {
+			sb.replace(of, en, valid);
+		}
+
+		//This sets the value on textfield
+		value.set(sb.toString());
+
+		// calculate caret pos
+		if (valid.length() > 0) {
+			if (caretPos >= getLength() - getSufix().length() - 1) {
+				caretPos = getLength() - getSufix().length() - 1;
+			} else if (caretPos == 0) {
+				caretPos = getPrefix().length();
+			}
+			positionCaret(caretPos + valid.length());
+		} else if (end != start) {
+			if (selection.getLength() > 1)
+				positionCaret(caretPos);// there's a selection, so dont change
+			// the caret
+			else
+				positionCaret(caretPos - 1);// there's not a selection, so back
+			// the caret in one position
+		}
+	}
+
+	private void replaceDouble(int start, int end, String text) {
+		String old = value.get();
+		int caretPos = getCaretPosition();
+
+		IndexRange selection = getSelection();// If there's a selecion, the
+		// caret calc is different.
+
+		// calculate ofsset
+		int of = getLength() == 0 ? start : start - getPrefix().length();
+		if (of < 0) {
+			of = 0;
+		} else if (of > value.get().length()) {
+			of = value.get().length();
+		}
+		// calculate end
+		int en = end - getSufix().length();
+		if (en < 0) {
+			en = 0;
+		} else if (en > value.get().length()) {
+			en = value.get().length();
 		}
 
 		String valid = isDecimalAutoFill() ? validateDouble(text) : validateManualDouble(text, of, en);
 
-		//Set the string builder without the formatting characters ('.' , ',')
-		StringBuilder sb = new StringBuilder(unformattedText.get());
+		// Set the string builder without the formatting characters ('.' , ',')
+		StringBuilder sb = new StringBuilder(value.get());
 
-		//Do the replacement or insertion.
-		if(start == end){
+		// Do the replacement or insertion.
+		if (start == end) {
 			sb.insert(of, valid);
-		}else{
+		} else {
 			sb.replace(of, en, valid);
 		}
 
-		if(isDecimalAutoFill()){
-			//Remove the ','
-			try{
+		if (isDecimalAutoFill()) {
+			// Remove the ','
+			try {
 				sb.deleteCharAt(sb.indexOf(","));
-			}catch(StringIndexOutOfBoundsException e){}
+			} catch (StringIndexOutOfBoundsException e) {
+			}
 
-			//Inser the ',' on the right place
-			if(sb.length()> getDecimalCases()){
-				try{
-					sb.insert(sb.length()-getDecimalCases(), ",");
-				}catch(StringIndexOutOfBoundsException e){}
-				//		}else{
-				//			String formatted = String.format("%0"+numDecimalCaseProperty.get()+"d", Integer.parseInt(sb.toString()));
-				//			sb = new StringBuilder("0,"+formatted);
+			// Inser the ',' on the right place
+			if (sb.length() > getDecimalCases()) {
+				try {
+					sb.insert(sb.length() - getDecimalCases(), ",");
+				} catch (StringIndexOutOfBoundsException e) {
+				}
+				// }else{
+				// String formatted =
+				// String.format("%0"+numDecimalCaseProperty.get()+"d",
+				// Integer.parseInt(sb.toString()));
+				// sb = new StringBuilder("0,"+formatted);
 			}
 		}
-		try{
-			doubleProperty.set(Double.parseDouble(sb.toString().replace(",", "."))); //Set the double value
-		}catch(NumberFormatException e){
-			doubleProperty.set(0);
+		try {
+			doubleValue.set(Double.parseDouble(sb.toString().replace(",", "."))); // Set
+			// the
+			// double
+			// value
+		} catch (NumberFormatException e) {
+			doubleValue.set(0);
 		}
-		unformattedText.set(sb.toString()); //Set the string formatted to the text holder
+		value.set(sb.toString()); // Set the string formatted to the text holder
 
+		// replace on textfield
+		// super.replaceText(0,
+		// getText().length(),getPrefix()+sb.toString()+getSufix());
 
-
-		//replace on textfield
-		super.replaceText(0, getText().length(),getPrefix()+unformattedText.get()+getSufix());
-
-		//calculate caret pos
-		if(valid.length() > 0){
-			if(caretPos >= getLength()-getSufix().length()-1){
-				caretPos = getLength()-getSufix().length()-1;
-			}else if(caretPos == 0){
+		// calculate caret pos
+		if (valid.length() > 0) {
+			if (caretPos >= getLength() - getSufix().length() - 1) {
+				caretPos = getLength() - getSufix().length() - 1;
+			} else if (caretPos == 0) {
 				caretPos = getPrefix().length();
 			}
-			if(!old.contains(",") && unformattedText.get().contains(","))caretPos++;//if old not contains ',' and new contains, the carret must go one char to the right
-			positionCaret(caretPos+valid.length());
-		}else if(end!= start){
-			if(selection.getLength()>1)
-				positionCaret(caretPos);//there's a selection, so dont change the caret
+			if (!old.contains(",") && value.get().contains(","))
+				caretPos++;// if old not contains ',' and new contains, the
+			// carret must go one char to the right
+			positionCaret(caretPos + valid.length());
+		} else if (end != start) {
+			if (selection.getLength() > 1)
+				positionCaret(caretPos);// there's a selection, so dont change
+			// the caret
 			else
-				positionCaret(caretPos-1);//there's not a selection, so back the caret in one position
-		}	
+				positionCaret(caretPos - 1);// there's not a selection, so back
+			// the caret in one position
+		}
 
 	}
 
-
-	private String validateDouble(String text){
+	private String validateDouble(String text) {
 		String validated = "";
 		Pattern pattern2 = Pattern.compile("[0-9]");
 
 		int n = text.length();
 
-		//Runs through the inputed text, verifying each char. If it maches with the setup,
-		//then inserts the char on validated text
+		// Runs through the inputed text, verifying each char. If it maches with
+		// the setup,
+		// then inserts the char on validated text
 		for (int i = 0; i < n; i++) {
 			Matcher matcher2 = pattern2.matcher(String.valueOf(text.charAt(i)));
 			int length = getText().replaceAll("\\D", "").length();
-//			int sel = (getSelection().getLength() > getLimit() ? getLimit() : getSelection().getLength())-1;
-			if((getLimit() == FormatBuilder.NO_LIMIT || length + validated.length() <= getLimit()-1) && matcher2.find()){
-				validated = validated+text.charAt(i);
+			// int sel = (getSelection().getLength() > getLimit() ? getLimit() :
+			// getSelection().getLength())-1;
+			if ((getLimit() == FormatBuilder.NO_LIMIT || length + validated.length() <= getLimit() - 1)
+					&& matcher2.find()) {
+				validated = validated + text.charAt(i);
 			}
 		}
 		return validated;
 	}
 
-	private String validateManualDouble(String text, int of, int en){
+	private String validateManualDouble(String text, int of, int en) {
 		String validated = "";
-
-		Pattern patternC = Pattern.compile("^(?=.*(,)).+$");
-		Matcher matcherC = patternC.matcher(String.valueOf(getText()));
-		boolean canInsertC = !matcherC.find();
 		Pattern pattern2 = Pattern.compile("[0-9]");
 
 		int n = text.length();
 
-		//Runs through the inputed text, verifying each char. If it maches with the setup,
-		//then inserts the char on validated text
+		// Runs through the inputed text, verifying each char. If it maches with
+		// the setup,
+		// then inserts the char on validated text
+		StringBuilder sb = new StringBuilder(getText());
 		for (int i = 0; i < n; i++) {
 			boolean isC = String.valueOf(text.charAt(i)).equals(",");
 			Matcher matcher2 = pattern2.matcher(String.valueOf(text.charAt(i)));
 			boolean canInsert = true;
-			int cindex = getText().indexOf(',');
 
-			if(cindex >= of || cindex == -1){
-				if(getLimit() != FormatBuilder.NO_LIMIT){
-					int len = getText().length();
-					try{
-						len = getText().split(",")[0].length();
-					}catch(Exception e){}
-					len += validated.length();
+			int cindex = sb.toString().indexOf(',');
+			if (cindex >= of || cindex == -1) {
+				if (getLimit() != FormatBuilder.NO_LIMIT) {
+					int len = sb.toString().split(",")[0].length();
 					int max = getLimit() - getDecimalCases();
-					if(!getSelectedText().contains(","))
+					if (!getSelectedText().contains(","))
 						max += (getSelectedText().length() > max ? max : getSelectedText().length());
-//					else
-//						max += (getSelectedText().split(",")[0].length() > max ? max : getSelectedText().split(",")[0].length());
 					canInsert = len < max;
 				}
-			}else{
-				if(!canInsertC){
-					int len = 0;
-					try{
-						len = getText().split(",")[1].length();
-					}catch(Exception e){}
-					len += validated.length();
-					int max = getDecimalCases();
-					if(!getSelectedText().contains(","))
-						max += (getSelectedText().length() > max ? max : getSelectedText().length());
-//					else
-//						max += (getSelectedText().split(",")[1].length() > max ? max : getSelectedText().split(",")[1].length());
-
-					canInsert = len < max;
+			} else if (cindex != -1) {
+				int len = 0;
+				try {
+					len = sb.toString().split(",")[1].length();
+				} catch (Exception e) {
 				}
+				int max = getDecimalCases();
+				if (!getSelectedText().contains(","))
+					max += (getSelectedText().length() > max ? max : getSelectedText().length());
+				canInsert = len < max;
 			}
 
-			if((matcher2.find() && canInsert) || (isC && canInsertC)){
-				validated = validated+text.charAt(i);
+			if ((matcher2.find() && canInsert) || (isC && cindex == -1)) {
+				validated = validated + text.charAt(i);
+				sb.insert(of, text.charAt(i));
+				of++;
 			}
+
 		}
 		return validated;
 	}
 
-	private void replace(int start, int end, String text){
-		int caretPos = getCaretPosition();		
-		String valid = getRegex() != null ? validateRegex(text) : validate(text);
-		IndexRange selection = getSelection();//If there's a selecion, the caret calc is different.
-
-
-		//calculate ofsset
-		int of = getLength() == 0 ? start : start-getPrefix().length();
-		if(of < 0){
-			of = 0;
-		}else if(of > unformattedText.get().length()){
-			of = unformattedText.get().length();
-		}
-
-		//calculate end
-		int	en = end;
-		en = en - getPrefix().length();
-		if(en < 0){
-			en = 0;
-		}else if(en > unformattedText.get().length()){
-			en = unformattedText.get().length();
-		}
-
-		//replace on the unformatted
-		StringBuilder sb = new StringBuilder(unformattedText.get());
-		if(start == end){
-			sb.insert(of, valid);
-		}else{
-			sb.replace(of, en, valid);
-		}
-
-		unformattedText.set(sb.toString());
-
-		//replace on textfield
-		super.replaceText(0, getText().length(), getPrefix()+unformattedText.get()+getSufix());
-
-		//calculate caret pos
-		if(valid.length() > 0){
-			if(caretPos >= getLength()-getSufix().length()-1){
-				caretPos = getLength()-getSufix().length()-1;
-			}else if(caretPos == 0){
-				caretPos = getPrefix().length();
-			}
-			positionCaret(caretPos+valid.length());
-		}else if(end!= start){
-			if(selection.getLength()>1)
-				positionCaret(caretPos);//there's a selection, so dont change the caret
-			else
-				positionCaret(caretPos-1);//there's not a selection, so back the caret in one position
-		}	
-	}
-
-	//Validate the input
-	private String validate(String text){
+	// Validate the input
+	private String validate(String text) {
 		String validated = "";
 		Pattern pattern1 = Pattern.compile("[A-Z a-z à-ú &&[^\\s]]");
 		Pattern pattern2 = Pattern.compile("[0-9]");
@@ -261,8 +280,9 @@ public class FormattedField extends TextField {
 
 		int n = text.length();
 
-		//Runs through the inputed text, verifying each char. If it maches with the setup,
-		//then inserts the char on validated text
+		// Runs through the inputed text, verifying each char. If it maches with
+		// the setup,
+		// then inserts the char on validated text
 		for (int i = 0; i < n; i++) {
 			Matcher matcher1 = pattern1.matcher(String.valueOf(text.charAt(i)));
 			Matcher matcher2 = pattern2.matcher(String.valueOf(text.charAt(i)));
@@ -271,114 +291,97 @@ public class FormattedField extends TextField {
 
 			int length = getText().length();
 
-			if((getLimit() == FormatBuilder.NO_LIMIT || length+validated.length()+1 <= getLimit()+getSelection().getLength() )&&
-					!(!isAllowLetters() && matcher1.find())&&
-					!(!isAllowNumbers() && matcher2.find())&&
-					!(!isAllowSpecialChars() && matcher3.find())&&
-					!(!isAllowWhiteSpace() && matcher4.find())){
+			if ((getLimit() == FormatBuilder.NO_LIMIT
+					|| length + validated.length() + 1 <= getLimit() + getSelection().getLength())
+					&& !(!isAllowLetters() && matcher1.find()) && !(!isAllowNumbers() && matcher2.find())
+					&& !(!isAllowSpecialChars() && matcher3.find()) && !(!isAllowWhiteSpace() && matcher4.find())) {
 
-				if(getCaseType() == Case.LOWER_CASE){
-					validated = validated+Character.toLowerCase(text.charAt(i));
-				}else if(getCaseType() == Case.UPPER_CASE){
-					validated = validated+Character.toUpperCase(text.charAt(i));					
-				}else{
-					validated = validated+text.charAt(i);
+				if (getCaseType() == Case.LOWER_CASE) {
+					validated = validated + Character.toLowerCase(text.charAt(i));
+				} else if (getCaseType() == Case.UPPER_CASE) {
+					validated = validated + Character.toUpperCase(text.charAt(i));
+				} else {
+					validated = validated + text.charAt(i);
 				}
 			}
 		}
 		return validated;
 	}
 
-	//Validate the input
-	private String validateRegex(String text){
+	// Validate the input
+	private String validateRegex(String text) {
 		String validated = "";
-		Pattern pattern1 = Pattern.compile(getRegex());
-
-		int n = text.length();
-
-		//Runs through the inputed text, verifying each char. If it maches with the setup,
-		//then inserts the char on validated text
-		for (int i = 0; i < n; i++) {
-			Matcher matcher1 = pattern1.matcher(String.valueOf(text.charAt(i)));
+		Pattern pattern = Pattern.compile(getRegex());
+		// Runs through the inputed text, verifying each char. If it maches with
+		// the setup,
+		// then inserts the char on validated text
+		for (int i = 0; i < text.length(); i++) {
+			Matcher matcher1 = pattern.matcher(String.valueOf(text.charAt(i)));
 
 			int length = getText().length();
 
-			if((getLimit() == FormatBuilder.NO_LIMIT || length+validated.length()+1 <= getLimit()+getSelection().getLength())
-					&& matcher1.find()){
+			if ((getLimit() == FormatBuilder.NO_LIMIT
+					|| length + validated.length() + 1 <= getLimit() + getSelection().getLength()) 
+					&& matcher1.find()) {
 
-				if(getCaseType() == Case.LOWER_CASE){
-					validated = validated+Character.toLowerCase(text.charAt(i));
-				}else if(getCaseType() == Case.UPPER_CASE){
-					validated = validated+Character.toUpperCase(text.charAt(i));					
-				}else{
-					validated = validated+text.charAt(i);
+				if (getCaseType() == Case.LOWER_CASE) {
+					validated = validated + Character.toLowerCase(text.charAt(i));
+				} else if (getCaseType() == Case.UPPER_CASE) {
+					validated = validated + Character.toUpperCase(text.charAt(i));
+				} else {
+					validated = validated + text.charAt(i);
 				}
 			}
 		}
 		return validated;
 	}
 
-	private Double doubleFormat(double d) {
-		DecimalFormat df = new DecimalFormat("0.00");
-		return Double.parseDouble(df.format(d).replace(",", "."));
+	public final DoubleProperty doubleValueProperty() {
+		return this.doubleValue;
 	}
 
-	@SuppressWarnings("unused")
-	private Double doubleFormat(String d) {
-		if(d == null || d.length() == 0){
-			return 0.00;
-		}
-		double dou = Double.parseDouble(d.replace(",", "."));
-		return doubleFormat(dou);
+	public final double getDoubleValue() {
+		return this.doubleValueProperty().get();
 	}
 
-
-	@SuppressWarnings("unused")
-	private String getAsMoney(Number obj){
-		NumberFormat f = NumberFormat.getNumberInstance();  
-		f.setMinimumFractionDigits(2);
-		f.setMaximumFractionDigits(2);
-
-		return f.format(obj);
-	}
-
-
-
-
-	//Properties---------------------------------------------------------
-	public DoubleProperty doubleProperty() {
-		return doubleProperty;
-	}
-
-	public ObjectProperty<FormatBuilder> formatProperty() {
-		return formatProperty;
-	}
-
-
-
-	//Getters and setters------------------------------------------------
-	public void setDoubleValue(double value){
-		doubleProperty.set(value);
-		if(formatProperty.get().decimalModeProperty().get()){
-			setText(String.valueOf(value));
+	public final void setDoubleValue(double value) {
+		if (format.get().decimalModeProperty().get()) {
+			setValue(String.valueOf(value).replace(".", ","));
 		}
 	}
 
-	public double getDoubleValue(){
-		return doubleProperty.get();		                        
+	public final StringProperty valueProperty() {
+		return this.value;
 	}
 
-	public FormatBuilder getFormat(){
-		return formatProperty.get();
+	public final String getValue() {
+		return this.valueProperty().get();
 	}
 
-	public void setFormat(FormatBuilder value){
-		formatProperty.set(value);
+	public void setValue(String text) {
+		replaceText(0, getText().length(), text == null ? "" : text);
 	}
 
+	public final ObjectProperty<FormatBuilder> formatProperty() {
+		return this.format;
+	}
 
+	public final FormatBuilder getFormat() {
+		return this.formatProperty().get();
+	}
 
+	public final void setFormat(final FormatBuilder format) {
+		this.formatProperty().set(format);
+	}
 
+	/**
+	 * 
+	 * 
+	 * 
+	 * 
+	 * 
+	 * 
+	 * */
 
 	public final BooleanProperty decimalModeProperty() {
 		return getFormat().decimalModeProperty();
@@ -516,13 +519,12 @@ public class FormattedField extends TextField {
 		return getFormat().decimalAutoFillProperty();
 	}
 
-
 	public final boolean isDecimalAutoFill() {
 		return this.decimalAutoFillProperty().get();
 	}
 
-
 	public final void setDecimalAutoFill(final boolean decimalAutoFill) {
 		this.decimalAutoFillProperty().set(decimalAutoFill);
 	}
+
 }

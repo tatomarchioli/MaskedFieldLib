@@ -60,7 +60,9 @@ public class Main extends Application {
 			f.setDecimalCases(4);
 			f.setLimit(10);
 			f.setDecimalAutoFill(false);
-//			f.doubleProperty().addListener((obs, oldv, newv)->System.out.println(newv));
+			f.doubleValueProperty().addListener((obs, oldv, newv)->System.out.println(newv));
+			f.setDoubleValue(7558.0380);
+			
 			
 			
 			MaskedField f2 = new MaskedField();

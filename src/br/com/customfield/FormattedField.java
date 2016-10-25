@@ -5,6 +5,7 @@ import java.text.NumberFormat;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import br.com.customfield.FormatBuilder.Case;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.IntegerProperty;
@@ -17,12 +18,6 @@ import javafx.scene.control.IndexRange;
 import javafx.scene.control.TextField;
 
 public class FormattedField extends TextField {
-	public static final int NO_LIMIT = -1;
-	public static final int NORMAL_CASE = 0;
-	public static final int LOWER_CASE = 1;
-	public static final int UPPER_CASE = 2;
-
-
 	private DoubleProperty doubleProperty = new SimpleDoubleProperty();
 	private StringProperty unformattedText = new SimpleStringProperty();
 	private ObjectProperty<FormatBuilder> formatProperty = new SimpleObjectProperty<>();
@@ -52,10 +47,8 @@ public class FormattedField extends TextField {
 	private void replaceDouble(int start, int end, String text){
 		String old = unformattedText.get();
 		int caretPos = getCaretPosition();		
-		String valid = validateDouble(text);
+
 		IndexRange selection = getSelection();//If there's a selecion, the caret calc is different.
-
-
 
 		//calculate ofsset
 		int of = getLength() == 0 ? start : start - getPrefix().length();
@@ -72,6 +65,7 @@ public class FormattedField extends TextField {
 			en = unformattedText.get().length();
 		}
 
+		String valid = isDecimalAutoFill() ? validateDouble(text) : validateManualDouble(text, of, en);
 
 		//Set the string builder without the formatting characters ('.' , ',')
 		StringBuilder sb = new StringBuilder(unformattedText.get());
@@ -83,21 +77,22 @@ public class FormattedField extends TextField {
 			sb.replace(of, en, valid);
 		}
 
-		//Remove the ','
-		try{
-			sb.deleteCharAt(sb.indexOf(","));
-		}catch(StringIndexOutOfBoundsException e){}
-
-		//Inser the ',' on the right place
-		if(sb.length()> getDecimalCases()){
+		if(isDecimalAutoFill()){
+			//Remove the ','
 			try{
-				sb.insert(sb.length()- getDecimalCases(), ",");
+				sb.deleteCharAt(sb.indexOf(","));
 			}catch(StringIndexOutOfBoundsException e){}
-			//		}else{
-			//			String formatted = String.format("%0"+numDecimalCaseProperty.get()+"d", Integer.parseInt(sb.toString()));
-			//			sb = new StringBuilder("0,"+formatted);
-		}
 
+			//Inser the ',' on the right place
+			if(sb.length()> getDecimalCases()){
+				try{
+					sb.insert(sb.length()-getDecimalCases(), ",");
+				}catch(StringIndexOutOfBoundsException e){}
+				//		}else{
+				//			String formatted = String.format("%0"+numDecimalCaseProperty.get()+"d", Integer.parseInt(sb.toString()));
+				//			sb = new StringBuilder("0,"+formatted);
+			}
+		}
 		try{
 			doubleProperty.set(Double.parseDouble(sb.toString().replace(",", "."))); //Set the double value
 		}catch(NumberFormatException e){
@@ -139,10 +134,65 @@ public class FormattedField extends TextField {
 		//then inserts the char on validated text
 		for (int i = 0; i < n; i++) {
 			Matcher matcher2 = pattern2.matcher(String.valueOf(text.charAt(i)));
+			int length = getText().replaceAll("\\D", "").length();
+//			int sel = (getSelection().getLength() > getLimit() ? getLimit() : getSelection().getLength())-1;
+			if((getLimit() == FormatBuilder.NO_LIMIT || length + validated.length() <= getLimit()-1) && matcher2.find()){
+				validated = validated+text.charAt(i);
+			}
+		}
+		return validated;
+	}
 
-			int length = getText().length();
+	private String validateManualDouble(String text, int of, int en){
+		String validated = "";
 
-			if((getLimit() == NO_LIMIT || length + validated.length() + 2 <= getLimit() + getSelection().getLength()) && matcher2.find()){
+		Pattern patternC = Pattern.compile("^(?=.*(,)).+$");
+		Matcher matcherC = patternC.matcher(String.valueOf(getText()));
+		boolean canInsertC = !matcherC.find();
+		Pattern pattern2 = Pattern.compile("[0-9]");
+
+		int n = text.length();
+
+		//Runs through the inputed text, verifying each char. If it maches with the setup,
+		//then inserts the char on validated text
+		for (int i = 0; i < n; i++) {
+			boolean isC = String.valueOf(text.charAt(i)).equals(",");
+			Matcher matcher2 = pattern2.matcher(String.valueOf(text.charAt(i)));
+			boolean canInsert = true;
+			int cindex = getText().indexOf(',');
+
+			if(cindex >= of || cindex == -1){
+				if(getLimit() != FormatBuilder.NO_LIMIT){
+					int len = getText().length();
+					try{
+						len = getText().split(",")[0].length();
+					}catch(Exception e){}
+					len += validated.length();
+					int max = getLimit() - getDecimalCases();
+					if(!getSelectedText().contains(","))
+						max += (getSelectedText().length() > max ? max : getSelectedText().length());
+//					else
+//						max += (getSelectedText().split(",")[0].length() > max ? max : getSelectedText().split(",")[0].length());
+					canInsert = len < max;
+				}
+			}else{
+				if(!canInsertC){
+					int len = 0;
+					try{
+						len = getText().split(",")[1].length();
+					}catch(Exception e){}
+					len += validated.length();
+					int max = getDecimalCases();
+					if(!getSelectedText().contains(","))
+						max += (getSelectedText().length() > max ? max : getSelectedText().length());
+//					else
+//						max += (getSelectedText().split(",")[1].length() > max ? max : getSelectedText().split(",")[1].length());
+
+					canInsert = len < max;
+				}
+			}
+
+			if((matcher2.find() && canInsert) || (isC && canInsertC)){
 				validated = validated+text.charAt(i);
 			}
 		}
@@ -151,7 +201,7 @@ public class FormattedField extends TextField {
 
 	private void replace(int start, int end, String text){
 		int caretPos = getCaretPosition();		
-		String valid = validate(text);
+		String valid = getRegex() != null ? validateRegex(text) : validate(text);
 		IndexRange selection = getSelection();//If there's a selecion, the caret calc is different.
 
 
@@ -221,15 +271,44 @@ public class FormattedField extends TextField {
 
 			int length = getText().length();
 
-			if((getLimit() == NO_LIMIT || length+validated.length()+1 <= getLimit()+getSelection().getLength() )&&
+			if((getLimit() == FormatBuilder.NO_LIMIT || length+validated.length()+1 <= getLimit()+getSelection().getLength() )&&
 					!(!isAllowLetters() && matcher1.find())&&
 					!(!isAllowNumbers() && matcher2.find())&&
 					!(!isAllowSpecialChars() && matcher3.find())&&
 					!(!isAllowWhiteSpace() && matcher4.find())){
 
-				if(getCase() == LOWER_CASE){
+				if(getCaseType() == Case.LOWER_CASE){
 					validated = validated+Character.toLowerCase(text.charAt(i));
-				}else if(getCase() == UPPER_CASE){
+				}else if(getCaseType() == Case.UPPER_CASE){
+					validated = validated+Character.toUpperCase(text.charAt(i));					
+				}else{
+					validated = validated+text.charAt(i);
+				}
+			}
+		}
+		return validated;
+	}
+
+	//Validate the input
+	private String validateRegex(String text){
+		String validated = "";
+		Pattern pattern1 = Pattern.compile(getRegex());
+
+		int n = text.length();
+
+		//Runs through the inputed text, verifying each char. If it maches with the setup,
+		//then inserts the char on validated text
+		for (int i = 0; i < n; i++) {
+			Matcher matcher1 = pattern1.matcher(String.valueOf(text.charAt(i)));
+
+			int length = getText().length();
+
+			if((getLimit() == FormatBuilder.NO_LIMIT || length+validated.length()+1 <= getLimit()+getSelection().getLength())
+					&& matcher1.find()){
+
+				if(getCaseType() == Case.LOWER_CASE){
+					validated = validated+Character.toLowerCase(text.charAt(i));
+				}else if(getCaseType() == Case.UPPER_CASE){
 					validated = validated+Character.toUpperCase(text.charAt(i));					
 				}else{
 					validated = validated+text.charAt(i);
@@ -299,131 +378,151 @@ public class FormattedField extends TextField {
 
 
 
-	//Properties bridge------------------------------------------------------
-	public IntegerProperty numDecimalCaseProperty(){
-		return formatProperty.get().numDecimalCaseProperty();
+
+
+	public final BooleanProperty decimalModeProperty() {
+		return getFormat().decimalModeProperty();
 	}
 
-	public IntegerProperty caseProperty(){
-		return formatProperty.get().caseProperty();
+	public final boolean isDecimalMode() {
+		return this.decimalModeProperty().get();
 	}
 
-	public StringProperty prefixProperty() {
-		return formatProperty.get().prefixProperty();
+	public final void setDecimalMode(final boolean decimalMode) {
+		this.decimalModeProperty().set(decimalMode);
 	}
 
-	public StringProperty sufixProperty() {
-		return formatProperty.get().sufixProperty();
+	public final IntegerProperty decimalCasesProperty() {
+		return getFormat().decimalCasesProperty();
 	}
 
-	public IntegerProperty limitProperty() {
-		return formatProperty.get().limitProperty();
+	public final int getDecimalCases() {
+		return this.decimalCasesProperty().get();
 	}
 
-	public BooleanProperty allowLettersProperty(){
-		return formatProperty.get().allowLettersProperty();
+	public final void setDecimalCases(final int decimalCases) {
+		this.decimalCasesProperty().set(decimalCases);
 	}
 
-	public BooleanProperty allowNumbersProperty(){
-		return formatProperty.get().allowNumbersProperty();
+	public final StringProperty prefixProperty() {
+		return getFormat().prefixProperty();
 	}
 
-	public BooleanProperty allowSpecialCharsProperty(){
-		return formatProperty.get().allowSpecialCharsProperty();
+	public final String getPrefix() {
+		return this.prefixProperty().get();
 	}
 
-	public BooleanProperty allowWhiteSpaceProperty(){
-		return formatProperty.get().allowWhiteSpaceProperty();
+	public final void setPrefix(final String prefix) {
+		this.prefixProperty().set(prefix);
 	}
 
-	public BooleanProperty decimalModeProperty() {
-		return formatProperty.get().decimalModeProperty();
+	public final StringProperty sufixProperty() {
+		return getFormat().sufixProperty();
+	}
+
+	public final String getSufix() {
+		return this.sufixProperty().get();
+	}
+
+	public final void setSufix(final String sufix) {
+		this.sufixProperty().set(sufix);
+	}
+
+	public final IntegerProperty limitProperty() {
+		return getFormat().limitProperty();
+	}
+
+	public final int getLimit() {
+		return this.limitProperty().get();
+	}
+
+	public final void setLimit(final int limit) {
+		this.limitProperty().set(limit);
+	}
+
+	public final BooleanProperty allowLettersProperty() {
+		return getFormat().allowLettersProperty();
+	}
+
+	public final boolean isAllowLetters() {
+		return this.allowLettersProperty().get();
+	}
+
+	public final void setAllowLetters(final boolean allowLetters) {
+		this.allowLettersProperty().set(allowLetters);
+	}
+
+	public final BooleanProperty allowNumbersProperty() {
+		return getFormat().allowNumbersProperty();
+	}
+
+	public final boolean isAllowNumbers() {
+		return this.allowNumbersProperty().get();
+	}
+
+	public final void setAllowNumbers(final boolean allowNumbers) {
+		this.allowNumbersProperty().set(allowNumbers);
+	}
+
+	public final BooleanProperty allowSpecialCharsProperty() {
+		return getFormat().allowSpecialCharsProperty();
+	}
+
+	public final boolean isAllowSpecialChars() {
+		return this.allowSpecialCharsProperty().get();
+	}
+
+	public final void setAllowSpecialChars(final boolean allowSpecialChars) {
+		this.allowSpecialCharsProperty().set(allowSpecialChars);
+	}
+
+	public final BooleanProperty allowWhiteSpaceProperty() {
+		return getFormat().allowWhiteSpaceProperty();
+	}
+
+	public final boolean isAllowWhiteSpace() {
+		return this.allowWhiteSpaceProperty().get();
+	}
+
+	public final void setAllowWhiteSpace(final boolean allowWhiteSpace) {
+		this.allowWhiteSpaceProperty().set(allowWhiteSpace);
+	}
+
+	public final StringProperty regexProperty() {
+		return getFormat().regexProperty();
+	}
+
+	public final String getRegex() {
+		return this.regexProperty().get();
+	}
+
+	public final void setRegex(final String regex) {
+		this.regexProperty().set(regex);
+	}
+
+	public final ObjectProperty<Case> caseTypeProperty() {
+		return getFormat().caseTypeProperty();
+	}
+
+	public final Case getCaseType() {
+		return this.caseTypeProperty().get();
+	}
+
+	public final void setCaseType(final Case caseType) {
+		this.caseTypeProperty().set(caseType);
+	}
+
+	public final BooleanProperty decimalAutoFillProperty() {
+		return getFormat().decimalAutoFillProperty();
 	}
 
 
-
-	//Getters and setters Bridge--------------------------------------------------
-	public void setCase(int value){
-		if(value <0 || value > 2){
-			throw new IllegalArgumentException("Case must be NORMAL, UPPER or LOWER");
-		}
-		getFormat().setCase(value);
+	public final boolean isDecimalAutoFill() {
+		return this.decimalAutoFillProperty().get();
 	}
 
-	public int getCase(){
-		return getFormat().getCase();
-	}
 
-	public boolean isAllowLetters() {
-		return getFormat().isAllowLetters();
+	public final void setDecimalAutoFill(final boolean decimalAutoFill) {
+		this.decimalAutoFillProperty().set(decimalAutoFill);
 	}
-
-	public void setAllowLetters(boolean allowLetters) {
-		getFormat().setAllowLetters(allowLetters);
-	}
-
-	public boolean isAllowNumbers() {
-		return getFormat().isAllowNumbers();
-	}
-
-	public void setAllowNumbers(boolean allowNumbers) {
-		getFormat().setAllowNumbers(allowNumbers);
-	}
-
-	public boolean isAllowSpecialChars() {
-		return getFormat().isAllowSpecialChars();
-	}
-
-	public void setAllowSpecialChars(boolean allowSpecialChars) {
-		getFormat().setAllowSpecialChars(allowSpecialChars);
-	}
-
-	public boolean isAllowWhiteSpace() {
-		return getFormat().isAllowWhiteSpace();
-	}
-
-	public void setAllowWhiteSpace(boolean allowWhiteSpace) {
-		getFormat().setAllowWhiteSpace(allowWhiteSpace);
-	}
-
-	public int getLimit(){
-		return getFormat().getLimit();
-	}
-
-	public void setLimit(int limit){
-		this.getFormat().setLimit(limit);
-	}
-
-	public void setPrefix(String prefix){
-		getFormat().setPrefix(prefix);
-	}
-
-	public String getPrefix(){
-		return getFormat().getPrefix();
-	}
-
-	public void setSufix(String sufix){
-		getFormat().setSufix(sufix);
-	}
-
-	public String getSufix(){
-		return getFormat().getSufix();
-	}
-
-	public void setDecimalCases(int num){
-		getFormat().setDecimalCases(num);
-	}
-
-	public int getDecimalCases(){
-		return getFormat().getDecimalCases();
-	}
-
-	public void setDecimalMode(boolean bol){
-		getFormat().setDecimalMode(bol);
-	}
-
-	public boolean isDecimalMode(){
-		return getFormat().isDecimalMode();
-	}
-
 }

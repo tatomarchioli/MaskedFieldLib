@@ -1,16 +1,24 @@
 package br.com.customfield.testes;
 	
+import java.time.LocalDateTime;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import br.com.customfield.FilteredComboBox;
 import br.com.customfield.FormatBuilder;
 import br.com.customfield.FormattedField;
 import br.com.customfield.FormattedFieldTableCell;
 import br.com.customfield.MaskedField;
+import br.com.customfield.MaskedFieldTableCell;
 import javafx.application.Application;
 import javafx.beans.property.DoubleProperty;
+import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleDoubleProperty;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.event.EventHandler;
 import javafx.stage.Stage;
 import javafx.util.StringConverter;
+import javafx.util.converter.LocalDateTimeStringConverter;
 import javafx.scene.Scene;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TablePosition;
@@ -32,6 +40,7 @@ public class Main extends Application {
 		
 		DoubleProperty d1 = new SimpleDoubleProperty();
 		DoubleProperty d2 = new SimpleDoubleProperty();
+		ObjectProperty<LocalDateTime> d3 = new SimpleObjectProperty<>(); 
 	}
 	
 	@Override
@@ -47,7 +56,12 @@ public class Main extends Application {
 			root.getChildren().add(cb);
 			
 			FormattedField f = new FormattedField();
-			f.getFormat().setLimit(6);
+			f.setDecimalMode(true);
+			f.setDecimalCases(4);
+			f.setLimit(10);
+			f.setDecimalAutoFill(false);
+//			f.doubleProperty().addListener((obs, oldv, newv)->System.out.println(newv));
+			
 			
 			MaskedField f2 = new MaskedField();
 			f2.setPromptText("DATA");
@@ -59,7 +73,9 @@ public class Main extends Application {
 			table.getItems().addAll(new Model(2.0,30.0),new Model(25.10,30.50),new Model(5.0,40.0));
 			FormatBuilder format = new FormatBuilder();
 			format.setDecimalMode(true);
-			format.setDecimalCases(2);
+			format.setDecimalAutoFill(false);
+			format.setDecimalCases(10);
+			format.setLimit(21);
 			
 			
 			StringConverter<Number> decimalConverter = new StringConverter<Number>() {
@@ -122,10 +138,10 @@ public class Main extends Application {
 			colDesconto.setCellFactory(FormattedFieldTableCell.forTableColumn(decimalConverter,format,keyEvent));
 			table.getColumns().add(colDesconto);
 			
-			TableColumn<Model, Number> cold2 = new TableColumn<>("Desconto");
+			TableColumn<Model, LocalDateTime> cold2 = new TableColumn<>("Desconto");
 			cold2.setStyle("-fx-alignment: CENTER-RIGHT;");
-			cold2.setCellValueFactory(p->p.getValue().d2);
-			cold2.setCellFactory(FormattedFieldTableCell.forTableColumn(decimalConverter,format,keyEvent));
+			cold2.setCellValueFactory(p->p.getValue().d3);
+			cold2.setCellFactory(MaskedFieldTableCell.forTableColumn("DD/DD/DDDD", new LocalDateTimeStringConverter(), keyEvent));
 			table.getColumns().add(cold2);
 
 			
@@ -145,6 +161,12 @@ public class Main extends Application {
 	}
 	
 	public static void main(String[] args) {
+		Pattern p = Pattern.compile("^(?=.*(,)).+$");
+		Matcher m = p.matcher("132ABCabc...");
+		Matcher m2 = p.matcher("1236123");
+		System.out.println(m.find());
+		System.out.println(m2.find());
+		
 		launch(args);
 	}
 }

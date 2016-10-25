@@ -58,11 +58,10 @@ public class Main extends Application {
 			FormattedField f = new FormattedField();
 			f.setDecimalMode(true);
 			f.setDecimalCases(4);
-			f.setLimit(10);
+			f.setLimit(20);
 			f.setDecimalAutoFill(false);
 			f.doubleValueProperty().addListener((obs, oldv, newv)->System.out.println(newv));
-			f.setDoubleValue(7558.0380);
-			
+			f.setDoubleValue(0.0001);
 			
 			
 			MaskedField f2 = new MaskedField();
@@ -163,12 +162,6 @@ public class Main extends Application {
 	}
 	
 	public static void main(String[] args) {
-		Pattern p = Pattern.compile("^(?=.*(,)).+$");
-		Matcher m = p.matcher("132ABCabc...");
-		Matcher m2 = p.matcher("1236123");
-		System.out.println(m.find());
-		System.out.println(m2.find());
-		
 		launch(args);
 	}
 }

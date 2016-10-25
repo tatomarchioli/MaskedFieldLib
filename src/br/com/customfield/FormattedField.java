@@ -1,6 +1,9 @@
 package br.com.customfield;
 
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.text.NumberFormat;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -17,9 +20,11 @@ import javafx.scene.control.IndexRange;
 import javafx.scene.control.TextField;
 
 public class FormattedField extends TextField {
+	private DecimalFormat decimalFormat = new DecimalFormat("0", DecimalFormatSymbols.getInstance(Locale.ENGLISH));
+	private NumberFormat numberFormat = NumberFormat.getNumberInstance();
+	
 	private DoubleProperty doubleValue = new SimpleDoubleProperty();
 	private StringProperty value = new SimpleStringProperty("");
-	private NumberFormat numberFormat = NumberFormat.getNumberInstance();
 	private ObjectProperty<FormatBuilder> format = new SimpleObjectProperty<>(new FormatBuilder());
 
 	public FormattedField() {
@@ -28,6 +33,7 @@ public class FormattedField extends TextField {
 
 	public FormattedField(FormatBuilder formatter) {
 		format.set(formatter == null ? new FormatBuilder() : formatter);
+		decimalFormat.setMaximumFractionDigits(340);
 		decimalCasesProperty().addListener((obs, oldv, newv) -> {
 			numberFormat.setMinimumFractionDigits(getDecimalCases());
 			numberFormat.setMaximumFractionDigits(getDecimalCases());
@@ -343,10 +349,11 @@ public class FormattedField extends TextField {
 	public final double getDoubleValue() {
 		return this.doubleValueProperty().get();
 	}
-
+	
+	
 	public final void setDoubleValue(double value) {
 		if (format.get().decimalModeProperty().get()) {
-			setValue(String.valueOf(value).replace(".", ","));
+			setValue(decimalFormat.format(value).replace(".", ","));
 		}
 	}
 

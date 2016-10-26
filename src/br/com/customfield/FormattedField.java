@@ -133,7 +133,6 @@ public class FormattedField extends TextField {
 		}
 
 		String valid = validateManualDouble(text, of, en);
-		System.out.println("valid - "+valid);
 		// Set the string builder without the formatting characters ('.' , ',')
 		StringBuilder sb = new StringBuilder(old);
 		// Do the replacement or insertion.
@@ -294,8 +293,7 @@ public class FormattedField extends TextField {
 	}
 
 
-	public final void setDoubleValue(BigDecimal value) {
-		System.out.println(value.toPlainString());
+	public final void setDecimalValue(BigDecimal value) {
 		if (format.get().decimalModeProperty().get()) {
 			setValue(value.toPlainString().replace(".", ","));
 		}

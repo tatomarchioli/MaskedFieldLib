@@ -66,7 +66,7 @@ public class Main extends Application {
 			f.decimalValueProperty().addListener((obs, oldv, newv)->{
 				System.out.println(newv.toPlainString());	
 			});
-			f.setDoubleValue(new BigDecimal("0.000001"));
+			f.setDecimalValue(new BigDecimal("0.000001"));
 			
 			
 			MaskedField f2 = new MaskedField();

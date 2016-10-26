@@ -1,14 +1,18 @@
-package br.com.customfield;
+package br.com.customfield.testes;
 
-import java.math.BigDecimal;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.text.NumberFormat;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import br.com.customfield.FormatBuilder.Case;
+import br.com.customfield.testes.FormatBuilder.Case;
 import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
@@ -16,9 +20,10 @@ import javafx.scene.control.IndexRange;
 import javafx.scene.control.TextField;
 
 public class FormattedField extends TextField {
-//	private DecimalFormat numberFormat = new DecimalFormat("0", DecimalFormatSymbols.getInstance(Locale.ENGLISH));
-	private NumberFormat numberFormat = NumberFormat.getNumberInstance();
-	private ObjectProperty<BigDecimal> decimalValue = new SimpleObjectProperty<>(BigDecimal.ZERO);
+	private DecimalFormat decimalFormat = new DecimalFormat("0", DecimalFormatSymbols.getInstance(Locale.ENGLISH));
+	private NumberFormat numberFormat = NumberFormat.getNumberInstance(Locale.ENGLISH);
+	
+	private DoubleProperty doubleValue = new SimpleDoubleProperty();
 	private StringProperty value = new SimpleStringProperty("");
 	private ObjectProperty<FormatBuilder> format = new SimpleObjectProperty<>(new FormatBuilder());
 
@@ -28,14 +33,15 @@ public class FormattedField extends TextField {
 
 	public FormattedField(FormatBuilder formatter) {
 		format.set(formatter == null ? new FormatBuilder() : formatter);
+		decimalFormat.setMaximumFractionDigits(340);
 		decimalCasesProperty().addListener((obs, oldv, newv) -> {
-			numberFormat.setMinimumFractionDigits(2);
+			numberFormat.setMinimumFractionDigits(getDecimalCases());
 			numberFormat.setMaximumFractionDigits(getDecimalCases());
 		});
 
 		value.addListener((obs, oldv, newv) -> {
 			if (isDecimalMode() && !isFocused()) {
-				setText(numberFormat.format(getDecimalValue()));
+				setText(numberFormat.format(getDoubleValue()));
 				return;
 			}
 			setText(newv);
@@ -44,7 +50,7 @@ public class FormattedField extends TextField {
 		focusedProperty().addListener((obs, oldv, newv) -> {
 			if (isDecimalMode()) {
 				if (!newv) {
-					setText(numberFormat.format(getDecimalValue()));
+					setText(numberFormat.format(getDoubleValue()));
 				} else {
 					setText(value.get());
 				}
@@ -115,27 +121,30 @@ public class FormattedField extends TextField {
 	private void replaceDouble(int start, int end, String text) {
 		String old = value.get();
 		int caretPos = getCaretPosition();
-		IndexRange selection = getSelection();
-		
+
+		IndexRange selection = getSelection();// If there's a selecion, the
+		// caret calc is different.
+
 		// calculate ofsset
 		int of = getLength() == 0 ? start : start - getPrefix().length();
 		if (of < 0) {
 			of = 0;
-		} else if (of > old.length()) {
-			of = old.length();
+		} else if (of > value.get().length()) {
+			of = value.get().length();
 		}
 		// calculate end
 		int en = end - getSufix().length();
 		if (en < 0) {
 			en = 0;
-		} else if (en > old.length()) {
-			en = old.length();
+		} else if (en > value.get().length()) {
+			en = value.get().length();
 		}
 
-		String valid = validateManualDouble(text, of, en);
-		System.out.println("valid - "+valid);
+		String valid = isDecimalAutoFill() ? validateDouble(text) : validateManualDouble(text, of, en);
+
 		// Set the string builder without the formatting characters ('.' , ',')
-		StringBuilder sb = new StringBuilder(old);
+		StringBuilder sb = new StringBuilder(value.get());
+
 		// Do the replacement or insertion.
 		if (start == end) {
 			sb.insert(of, valid);
@@ -143,13 +152,28 @@ public class FormattedField extends TextField {
 			sb.replace(of, en, valid);
 		}
 
-		try {
-			decimalValue.set(new BigDecimal(sb.toString().replace(",", "."))); // Set
-		} catch (NumberFormatException e) {
-			decimalValue.set(BigDecimal.ZERO);
-		}
+		if (isDecimalAutoFill()) {
+			// Remove the ','
+			try {
+				sb.deleteCharAt(sb.indexOf(","));
+			} catch (StringIndexOutOfBoundsException e) {
+			}
 
+			// Inser the ',' on the right place
+			if (sb.length() > getDecimalCases()) {
+				try {
+					sb.insert(sb.length() - getDecimalCases(), ",");
+				} catch (StringIndexOutOfBoundsException e) {
+				}
+			}
+		}
+		try {
+			doubleValue.set(Double.parseDouble(sb.toString().replace(",", "."))); // Set
+		} catch (NumberFormatException e) {
+			doubleValue.set(0);
+		}
 		value.set(sb.toString()); // Set the string formatted to the text holder
+
 
 		// calculate caret pos
 		if (valid.length() > 0) {
@@ -170,9 +194,31 @@ public class FormattedField extends TextField {
 				positionCaret(caretPos - 1);// there's not a selection, so back
 			// the caret in one position
 		}
+
 	}
 
-	//Just string business logic
+	private String validateDouble(String text) {
+		String validated = "";
+		Pattern pattern2 = Pattern.compile("[0-9]");
+
+		int n = text.length();
+
+		// Runs through the inputed text, verifying each char. If it maches with
+		// the setup,
+		// then inserts the char on validated text
+		for (int i = 0; i < n; i++) {
+			Matcher matcher2 = pattern2.matcher(String.valueOf(text.charAt(i)));
+			int length = getText().replaceAll("\\D", "").length();
+			// int sel = (getSelection().getLength() > getLimit() ? getLimit() :
+			// getSelection().getLength())-1;
+			if ((getLimit() == FormatBuilder.NO_LIMIT || length + validated.length() <= getLimit() - 1)
+					&& matcher2.find()) {
+				validated = validated + text.charAt(i);
+			}
+		}
+		return validated;
+	}
+
 	private String validateManualDouble(String text, int of, int en) {
 		String validated = "";
 		Pattern pattern2 = Pattern.compile("[0-9]");
@@ -285,19 +331,18 @@ public class FormattedField extends TextField {
 		return validated;
 	}
 
-	public final ObjectProperty<BigDecimal> decimalValueProperty() {
-		return this.decimalValue;
+	public final DoubleProperty doubleValueProperty() {
+		return this.doubleValue;
 	}
 
-	public final BigDecimal getDecimalValue() {
-		return this.decimalValueProperty().get();
+	public final double getDoubleValue() {
+		return this.doubleValueProperty().get();
 	}
-
-
-	public final void setDoubleValue(BigDecimal value) {
-		System.out.println(value.toPlainString());
+	
+	
+	public final void setDoubleValue(double value) {
 		if (format.get().decimalModeProperty().get()) {
-			setValue(value.toPlainString().replace(".", ","));
+			setValue(decimalFormat.format(value).replace(".", ","));
 		}
 	}
 
@@ -464,6 +509,18 @@ public class FormattedField extends TextField {
 
 	public final void setCaseType(final Case caseType) {
 		this.caseTypeProperty().set(caseType);
+	}
+
+	public final BooleanProperty decimalAutoFillProperty() {
+		return getFormat().decimalAutoFillProperty();
+	}
+
+	public final boolean isDecimalAutoFill() {
+		return this.decimalAutoFillProperty().get();
+	}
+
+	public final void setDecimalAutoFill(final boolean decimalAutoFill) {
+		this.decimalAutoFillProperty().set(decimalAutoFill);
 	}
 
 }

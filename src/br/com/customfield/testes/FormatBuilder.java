@@ -1,4 +1,4 @@
-package br.com.customfield;
+package br.com.customfield.testes;
 
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.IntegerProperty;
@@ -19,7 +19,7 @@ public class FormatBuilder{
 
 	private BooleanProperty decimalMode = new SimpleBooleanProperty(false);
 	private IntegerProperty decimalCases = new SimpleIntegerProperty();
-//	private BooleanProperty decimalAutoFill = new SimpleBooleanProperty(true);
+	private BooleanProperty decimalAutoFill = new SimpleBooleanProperty(true);
 	private StringProperty prefix = new SimpleStringProperty("");
 	private StringProperty sufix = new SimpleStringProperty("");
 	private IntegerProperty limit = new SimpleIntegerProperty(-1);
@@ -162,19 +162,19 @@ public class FormatBuilder{
 		this.caseTypeProperty().set(caseType);
 	}
 
-//	public final BooleanProperty decimalAutoFillProperty() {
-//		return this.decimalAutoFill;
-//	}
-//	
-//
-//	public final boolean isDecimalAutoFill() {
-//		return this.decimalAutoFillProperty().get();
-//	}
-//	
-//
-//	public final void setDecimalAutoFill(final boolean decimalAutoFill) {
-//		this.decimalAutoFillProperty().set(decimalAutoFill);
-//	}
+	public final BooleanProperty decimalAutoFillProperty() {
+		return this.decimalAutoFill;
+	}
+	
+
+	public final boolean isDecimalAutoFill() {
+		return this.decimalAutoFillProperty().get();
+	}
+	
+
+	public final void setDecimalAutoFill(final boolean decimalAutoFill) {
+		this.decimalAutoFillProperty().set(decimalAutoFill);
+	}
 	
 	
 	

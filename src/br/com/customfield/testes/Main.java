@@ -1,6 +1,10 @@
 package br.com.customfield.testes;
 	
+import java.math.BigDecimal;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.time.LocalDateTime;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -57,11 +61,12 @@ public class Main extends Application {
 			
 			FormattedField f = new FormattedField();
 			f.setDecimalMode(true);
-			f.setDecimalCases(4);
+			f.setDecimalCases(6);
 			f.setLimit(20);
-			f.setDecimalAutoFill(false);
-			f.doubleValueProperty().addListener((obs, oldv, newv)->System.out.println(newv));
-			f.setDoubleValue(0.0001);
+			f.decimalValueProperty().addListener((obs, oldv, newv)->{
+				System.out.println(newv.toPlainString());	
+			});
+			f.setDoubleValue(new BigDecimal("0.000001"));
 			
 			
 			MaskedField f2 = new MaskedField();
@@ -74,7 +79,6 @@ public class Main extends Application {
 			table.getItems().addAll(new Model(2.0,30.0),new Model(25.10,30.50),new Model(5.0,40.0));
 			FormatBuilder format = new FormatBuilder();
 			format.setDecimalMode(true);
-			format.setDecimalAutoFill(false);
 			format.setDecimalCases(10);
 			format.setLimit(21);
 			
@@ -163,5 +167,7 @@ public class Main extends Application {
 	
 	public static void main(String[] args) {
 		launch(args);
+		
+		System.out.println(55555555555555.1111111);
 	}
 }

@@ -1,13 +1,7 @@
 package br.com.customfield.testes;
 	
 import java.math.BigDecimal;
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
 import java.time.LocalDateTime;
-import java.util.Locale;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 import br.com.customfield.FilteredComboBox;
 import br.com.customfield.FormatBuilder;
 import br.com.customfield.FormattedField;
@@ -66,8 +60,11 @@ public class Main extends Application {
 			f.decimalValueProperty().addListener((obs, oldv, newv)->{
 				System.out.println(newv.toPlainString());	
 			});
-			f.setDecimalValue(new BigDecimal("0.000001"));
-			
+			f.setDecimalValue(new BigDecimal("4.00000000000000000"));
+			System.out.println("===========================");
+			f.setDecimalValue(new BigDecimal("12345678901234567890.60000000000000000"));	
+			System.out.println("===========================");
+			f.setDecimalValue(new BigDecimal("0.1"));
 			
 			MaskedField f2 = new MaskedField();
 			f2.setPromptText("DATA");

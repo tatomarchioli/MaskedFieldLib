@@ -143,7 +143,9 @@ public class FormattedField extends TextField {
 		} else {
 			sb.replace(of, en, valid);
 		}
-
+		
+		
+		
 		try {
 			decimalValue.set(new BigDecimal(sb.toString().replace(",", "."))); // Set
 		} catch (NumberFormatException e) {
@@ -183,7 +185,8 @@ public class FormattedField extends TextField {
 		// Runs through the inputed text, verifying each char. If it maches with
 		// the setup,
 		// then inserts the char on validated text
-		StringBuilder sb = new StringBuilder(getText());
+		StringBuilder sb = new StringBuilder(getValue());
+		sb.delete(of, en);
 		for (int i = 0; i < n; i++) {
 			boolean isC = String.valueOf(text.charAt(i)).equals(",");
 			Matcher matcher2 = pattern2.matcher(String.valueOf(text.charAt(i)));
@@ -194,8 +197,8 @@ public class FormattedField extends TextField {
 				if (getLimit() != FormatBuilder.NO_LIMIT) {
 					int len = sb.toString().split(",")[0].length();
 					int max = getLimit() - getDecimalCases();
-					if (!getSelectedText().contains(","))
-						max += (getSelectedText().length() > max ? max : getSelectedText().length());
+//					if (!getSelectedText().contains(","))
+//						max += (getSelectedText().length() > max ? max : getSelectedText().length());
 					canInsert = len < max;
 				}
 			} else if (cindex != -1) {
@@ -205,8 +208,8 @@ public class FormattedField extends TextField {
 				} catch (Exception e) {
 				}
 				int max = getDecimalCases();
-				if (!getSelectedText().contains(","))
-					max += (getSelectedText().length() > max ? max : getSelectedText().length());
+//				if (!getSelectedText().contains(","))
+//					max += (getSelectedText().length() > max ? max : getSelectedText().length());
 				canInsert = len < max;
 			}
 
@@ -239,7 +242,7 @@ public class FormattedField extends TextField {
 			Matcher matcher3 = pattern3.matcher(String.valueOf(text.charAt(i)));
 			Matcher matcher4 = pattern4.matcher(String.valueOf(text.charAt(i)));
 
-			int length = getText().length();
+			int length = getValue().length();
 
 			if ((getLimit() == FormatBuilder.NO_LIMIT
 					|| length + validated.length() + 1 <= getLimit() + getSelection().getLength())
@@ -268,7 +271,7 @@ public class FormattedField extends TextField {
 		for (int i = 0; i < text.length(); i++) {
 			Matcher matcher1 = pattern.matcher(String.valueOf(text.charAt(i)));
 
-			int length = getText().length();
+			int length = getValue().length();
 
 			if ((getLimit() == FormatBuilder.NO_LIMIT
 					|| length + validated.length() + 1 <= getLimit() + getSelection().getLength()) 
@@ -310,7 +313,7 @@ public class FormattedField extends TextField {
 	}
 
 	public void setValue(String text) {
-		replaceText(0, getText().length(), text == null ? "" : text);
+		replaceText(0, getValue().length(), text == null ? "" : text);
 	}
 
 	public final ObjectProperty<FormatBuilder> formatProperty() {

@@ -6,6 +6,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import br.com.customfield.FormatBuilder.Case;
+import br.com.fxport.properties.BigDecimalProperty;
+import br.com.fxport.properties.SimpleBigDecimalProperty;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.ObjectProperty;
@@ -18,7 +20,7 @@ import javafx.scene.control.TextField;
 public class FormattedField extends TextField {
 //	private DecimalFormat numberFormat = new DecimalFormat("0", DecimalFormatSymbols.getInstance(Locale.ENGLISH));
 	private NumberFormat numberFormat = NumberFormat.getNumberInstance();
-	private ObjectProperty<BigDecimal> decimalValue = new SimpleObjectProperty<>(BigDecimal.ZERO);
+	private BigDecimalProperty decimalValue = new SimpleBigDecimalProperty(BigDecimal.ZERO);
 	private StringProperty value = new SimpleStringProperty("");
 	private ObjectProperty<FormatBuilder> format = new SimpleObjectProperty<>(new FormatBuilder());
 
@@ -284,7 +286,7 @@ public class FormattedField extends TextField {
 		return validated;
 	}
 
-	public final ObjectProperty<BigDecimal> decimalValueProperty() {
+	public final BigDecimalProperty decimalValueProperty() {
 		return this.decimalValue;
 	}
 
